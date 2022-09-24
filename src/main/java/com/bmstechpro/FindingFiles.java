@@ -6,25 +6,39 @@ import org.apache.commons.csv.CSVPrinter;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class FindingFiles {
     private static final String OUTPUT_FILE = "output.csv";
 
     public static void main(String[] args) {
 
-        if (args.length !=2) {
-            System.out.println("Usage: [root folder path][filter]");
-            System.out.println("Example: [\"c:/favorite photos\"] [*.pdf]");
+        if (args.length < 2) {
+            System.out.println("Usage: [root folder path][filter][maxDepth]");
+            System.out.println("Example: [\"c:/favorite photos\"] [pdf] [5]");
             return;
         }
 
         Path path = Paths.get(args[0]);
+        int maxDepth = 5;
+        if (args.length == 3) {
+            try {
+                int param = Integer.parseInt(args[2]);
+                if (param > 0 && param < Integer.MAX_VALUE) {
+                    maxDepth = param;
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("invalid depth parameter");
+            }
+        }
+        System.out.println("search depth: " + maxDepth);
         boolean exists = Files.exists(path);
         if (!exists) {
             System.out.println("Unable to find root directory");
@@ -33,43 +47,31 @@ public class FindingFiles {
 
         System.out.println(path.getFileName());
         System.out.println("Searching for files: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-
         List<Path> matchesList = new ArrayList<>();
-        String pattern = args[1];
 
 
-        PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
-
-        FileVisitor<Path> fileVisitor = new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-
-                Path name = file.getFileName();
-                if (matcher.matches(name)) {
-                    matchesList.add(name);
-                }
-                return FileVisitResult.CONTINUE;
-
-            }
-        };
-        try {
-            Files.walkFileTree(path, fileVisitor);
-            System.out.println("File search completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-            System.out.println("Found: " + matchesList.size() + " files");
-            System.out.println("Writing files to file");
-
-            createCSVFile(matchesList, OUTPUT_FILE);
-            System.out.println(OUTPUT_FILE + ": " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-
-
+        try (Stream<Path> pathStream = Files.walk(path, maxDepth)) {
+            pathStream.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(args[1]))
+                    .forEach(matchesList::add);
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        System.out.println("File search completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
+        System.out.println("Found: " + matchesList.size() + " files");
+        if (matchesList.size() > 0) {
+            try {
+                createCSVFile(matchesList, OUTPUT_FILE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
 
     }
 
-    public static void createCSVFile(List<Path> fileList, String file) throws IOException {
+    private static void createCSVFile(List<Path> fileList, String file) throws IOException {
 
         FileWriter out = new FileWriter(file);
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
