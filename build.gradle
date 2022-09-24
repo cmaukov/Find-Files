@@ -1,9 +1,16 @@
 plugins {
     id 'java'
+    id 'application'
 }
 
 group 'com.bmstechpro'
-version '1.0-SNAPSHOT'
+version '1.0.0'
+mainClassName = "com.bmstechpro.FindingFiles"
+java{
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+}
+
 
 repositories {
     mavenCentral()
@@ -12,8 +19,20 @@ repositories {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    implementation group: 'org.apache.commons', name: 'commons-csv', version: '1.8'
 }
 
 test {
     useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'File Finder',
+                'Implementation-Version': getArchiveVersion(),
+                'Created-By' : "bmstechpro",
+                'Main-Class': 'com.bmstechpro.FindingFiles'
+    }
+    setArchivesBaseName("$project.name-all")
+    from {project.configurations.runtimeClasspath.collect {File file -> project.zipTree(file) } }
 }
