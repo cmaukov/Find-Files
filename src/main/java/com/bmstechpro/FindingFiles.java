@@ -6,24 +6,21 @@ import org.apache.commons.csv.CSVPrinter;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.FileTime;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class FindingFiles {
+    private static final String OUTPUT_FILE = "output.csv";
+
     public static void main(String[] args) {
 
-        if (args.length < 2) {
-            System.out.println("Usage: [root folder path][filter1] [filter2]...");
-            System.out.println("Example: [\"c:/favorite photos\"] [jpg] [pdf]");
+        if (args.length !=2) {
+            System.out.println("Usage: [root folder path][filter]");
+            System.out.println("Example: [\"c:/favorite photos\"] [*.pdf]");
             return;
         }
 
@@ -33,26 +30,42 @@ public class FindingFiles {
             System.out.println("Unable to find root directory");
             return;
         }
+
+        System.out.println(path.getFileName());
         System.out.println("Searching for files: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
 
-        List<String> filterList = Arrays.stream(args).skip(1).collect(Collectors.toList());
+        List<Path> matchesList = new ArrayList<>();
+        String pattern = args[1];
 
-        try (Stream<Path> find = Files.find(path, 7, (p, attr) -> {
-            for (String filter : filterList) {
-                if (p.toString().endsWith(filter)) return true;
+
+        PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
+
+        FileVisitor<Path> fileVisitor = new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+
+                Path name = file.getFileName();
+                if (matcher.matches(name)) {
+                    matchesList.add(name);
+                }
+                return FileVisitResult.CONTINUE;
+
             }
-            return false;
-        })) {
-            List<Path> filesList = find.collect(Collectors.toList());
-            System.out.println("count = " + filesList.size());
+        };
+        try {
+            Files.walkFileTree(path, fileVisitor);
             System.out.println("File search completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-            System.out.println("Writing search results to file...");
-            createCSVFile(filesList, "output.csv");
+            System.out.println("Found: " + matchesList.size() + " files");
+            System.out.println("Writing files to file");
+
+            createCSVFile(matchesList, OUTPUT_FILE);
+            System.out.println(OUTPUT_FILE + ": " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
 
 
         } catch (IOException e) {
-            System.out.println("An error occurred...");
+            e.printStackTrace();
         }
+
 
     }
 
@@ -60,13 +73,12 @@ public class FindingFiles {
 
         FileWriter out = new FileWriter(file);
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader("File Name", "Last Modified Time","Path"))) {
+                .withHeader("File Name", "Path"))) {
             fileList.forEach((f) -> {
 
                 try {
-                    printer.printRecord(f.toFile().getName(),
-                            Files.getLastModifiedTime(f),
-                            f.toFile().getAbsolutePath());
+                    printer.printRecord(f.getFileName(),
+                            f.toAbsolutePath());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
