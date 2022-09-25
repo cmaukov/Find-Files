@@ -6,13 +6,13 @@ import org.apache.commons.csv.CSVPrinter;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FindingFiles {
@@ -25,8 +25,13 @@ public class FindingFiles {
             System.out.println("Example: [\"c:/favorite photos\"] [pdf] [5]");
             return;
         }
-
         Path path = Paths.get(args[0]);
+        boolean exists = Files.exists(path);
+        if (!exists) {
+            System.out.println("Unable to find root directory");
+            return;
+        }
+
         int maxDepth = 5;
         if (args.length == 3) {
             try {
@@ -39,35 +44,31 @@ public class FindingFiles {
             }
         }
         System.out.println("search depth: " + maxDepth);
-        boolean exists = Files.exists(path);
-        if (!exists) {
-            System.out.println("Unable to find root directory");
-            return;
-        }
 
-        System.out.println(path.getFileName());
-        System.out.println("Searching for files: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-        List<Path> matchesList = new ArrayList<>();
+        List<Path> directoryList = new ArrayList<>();
+        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
+            directoryStream.forEach(directoryList::add);
 
-
-        try (Stream<Path> pathStream = Files.walk(path, maxDepth)) {
-            pathStream.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(args[1]))
-                    .forEach(matchesList::add);
         } catch (IOException e) {
+            System.out.println("unable to collect top level directories");
             e.printStackTrace();
         }
 
-        System.out.println("File search completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
-        System.out.println("Found: " + matchesList.size() + " files");
-        if (matchesList.size() > 0) {
-            try {
-                createCSVFile(matchesList, OUTPUT_FILE);
-            } catch (IOException e) {
-                e.printStackTrace();
+        for (char c = 'A'; c <= 'Z'; c++) {
+            final String prefix = String.valueOf(c);
+            List<Path> pathList = directoryList.parallelStream().filter(path1 -> path1.getFileName().toString().toUpperCase().startsWith(prefix))
+                    .collect(Collectors.toList());
+            for (Path path2 : pathList) {
+                try (Stream<Path> pathStream = Files.walk(path2, maxDepth)) {
+                    List<Path> matches = pathStream.filter(Files::isRegularFile)
+                            .filter(p -> p.toString().endsWith(args[1]))
+                            .collect(Collectors.toList());
+                    if (matches.size() > 0) createCSVFile(matches, prefix + "_" + OUTPUT_FILE);
+                } catch (Exception ignored) {
+
+                }
             }
         }
-
 
     }
 
