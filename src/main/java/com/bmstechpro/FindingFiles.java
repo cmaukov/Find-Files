@@ -6,20 +6,19 @@ import org.apache.commons.csv.CSVPrinter;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 public class FindingFiles {
     private static final String OUTPUT_FILE = "output.csv";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
         if (args.length < 2) {
             System.out.println("Usage: [root folder path][filter][maxDepth]");
@@ -46,48 +45,73 @@ public class FindingFiles {
         }
         System.out.println("search depth: " + maxDepth);
 
-        List<Path> directoryList = new ArrayList<>();
-        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
-            directoryStream.forEach(directoryList::add);
+        String location = "/Users/konstantinstaykov/Public/sandbox";
+        String filter = "pdf";
 
-        } catch (IOException e) {
-            System.out.println("unable to collect top level directories");
-            e.printStackTrace();
-        }
 
-        for (char c = 'A'; c <= 'Z'; c++) {
-            final String prefix = String.valueOf(c);
-            List<Path> pathList = directoryList.parallelStream().filter(path1 -> path1.getFileName().toString().toUpperCase().startsWith(prefix))
-                    .collect(Collectors.toList());
-            List<Path> matches = new ArrayList<>();
+        String search = "1,2,3,4,5,6,7,8,9,0,_,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z";
 
-            for (Path path2 : pathList) {
-                try (Stream<Path> pathStream = Files.walk(path2, maxDepth)) {
-                    pathStream
+        String[] mapKeys = search.split(",");
 
-                            .filter(Files::isRegularFile)
-                            .filter(p -> p.toString().endsWith(args[1]))
-                            .forEach(matches::add);
+        List<Path> paths = listSourceFiles(path);
 
-                } catch (Exception ignored) {
+        Map<String, List<Path>> searchMap = getMap(mapKeys);
 
+        paths.forEach(p -> {
+
+            for (String key : mapKeys) {
+                if (p.getFileName().toString().toUpperCase().startsWith(key)) {
+                    searchMap.get(key).add(p);
                 }
             }
-            try {
-                if (matches.size() > 0) createCSVFile(matches, prefix + "_" + OUTPUT_FILE);
-            } catch (IOException ignored) {
+        });
 
+        ExecutorService executorService = Executors.newCachedThreadPool();
+
+        for (String key : searchMap.keySet()) {
+            List<Path> searchGroup = searchMap.get(key);
+            if (searchGroup.size() > 0) {
+                executorService.execute(new Playground.SearchTask(key, searchGroup, filter));
             }
-
         }
+
+        executorService.shutdown();
+
 
     }
 
-    private static void createCSVFile(List<Path> fileList, String file) throws IOException {
 
-        FileWriter out = new FileWriter(file);
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader("File Name", "Path"))) {
+    private static Map<String, List<Path>> getMap(String[] mapKeys) {
+        Map<String, List<Path>> map = new HashMap<>();
+        for (String mapKey : mapKeys) {
+            map.put(mapKey, new ArrayList<>());
+        }
+        return map;
+    }
+
+    private static List<Path> listSourceFiles(Path dir) throws IOException {
+        List<Path> result = new ArrayList<>();
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path entry : stream) {
+                result.add(entry);
+            }
+        } catch (DirectoryIteratorException ex) {
+            // I/O error encounted during the iteration, the cause is an IOException
+            throw ex.getCause();
+        }
+        return result;
+    }
+
+    private static synchronized void createCSVFile(List<Path> fileList, String file) {
+
+        FileWriter out = null;
+        try {
+            out = new FileWriter(file);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT.withHeader("File Name", "Path"))) {
             fileList.forEach((f) -> {
 
                 try {
@@ -97,6 +121,34 @@ public class FindingFiles {
                     e.printStackTrace();
                 }
             });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static class SearchTask implements Runnable {
+        private final List<Path> searchGroup;
+        private final String key;
+        private final String filter;
+
+        public SearchTask(String key, List<Path> searchGroup, String filter) {
+            this.key = key;
+            this.searchGroup = searchGroup;
+            this.filter = filter;
+        }
+
+        @Override
+        public void run() {
+            List<Path> foundMatches = new ArrayList<>();
+            for (Path path : searchGroup) {
+                try (Stream<Path> pathStream = Files.find(path, 5, (p, a) -> p.getFileName().toString().endsWith(filter))) {
+                    pathStream.forEach(foundMatches::add);
+                } catch (IOException ignored) {
+
+                }
+            }
+            if (foundMatches.size() > 0) createCSVFile(foundMatches, key + "_" + OUTPUT_FILE);
+
         }
     }
 }
