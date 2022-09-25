@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,16 +59,26 @@ public class FindingFiles {
             final String prefix = String.valueOf(c);
             List<Path> pathList = directoryList.parallelStream().filter(path1 -> path1.getFileName().toString().toUpperCase().startsWith(prefix))
                     .collect(Collectors.toList());
+            List<Path> matches = new ArrayList<>();
+
             for (Path path2 : pathList) {
                 try (Stream<Path> pathStream = Files.walk(path2, maxDepth)) {
-                    List<Path> matches = pathStream.filter(Files::isRegularFile)
+                    pathStream
+
+                            .filter(Files::isRegularFile)
                             .filter(p -> p.toString().endsWith(args[1]))
-                            .collect(Collectors.toList());
-                    if (matches.size() > 0) createCSVFile(matches, prefix + "_" + OUTPUT_FILE);
+                            .forEach(matches::add);
+
                 } catch (Exception ignored) {
 
                 }
             }
+            try {
+                if (matches.size() > 0) createCSVFile(matches, prefix + "_" + OUTPUT_FILE);
+            } catch (IOException ignored) {
+
+            }
+
         }
 
     }
