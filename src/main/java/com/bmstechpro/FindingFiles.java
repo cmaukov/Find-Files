@@ -23,8 +23,8 @@ public class FindingFiles {
     public static void main(String[] args) throws IOException {
 
         if (args.length < 2) {
-            System.out.println("Usage: [root folder path][filter][maxDepth]");
-            System.out.println("Example: [\"c:/favorite photos\"] [pdf] [5]");
+            System.out.println("Usage: [root folder path] [file extension] [search prefix] [maxDepth]");
+            System.out.println("Example: [\"c:/favorite photos\"] [pdf] [A] [5]");
             return;
         }
         Path path = Paths.get(args[0]);
@@ -34,10 +34,19 @@ public class FindingFiles {
             return;
         }
 
+        String fileExtension = args[1];
+
+
+        String searchPrefix = "1,2,3,4,5,6,7,8,9,0,_,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z";
+
+        if (args.length > 2) {
+            searchPrefix = args[2].toUpperCase();
+        }
+
         int maxDepth = 5;
-        if (args.length == 3) {
+        if (args.length > 3) {
             try {
-                int param = Integer.parseInt(args[2]);
+                int param = Integer.parseInt(args[3]);
                 if (param > 0 && param < Integer.MAX_VALUE) {
                     maxDepth = param;
                 }
@@ -45,16 +54,13 @@ public class FindingFiles {
                 System.out.println("invalid depth parameter");
             }
         }
+
+
         System.out.println("Searching for files: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
         System.out.println("search depth: " + maxDepth);
 
-        String location = "/Users/konstantinstaykov/Public/sandbox";
-        String filter = "pdf";
 
-
-        String search = "1,2,3,4,5,6,7,8,9,0,_,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z";
-
-        String[] mapKeys = search.split(",");
+        String[] mapKeys = searchPrefix.split(",");
 
         List<Path> paths = listSourceFiles(path);
 
@@ -74,13 +80,13 @@ public class FindingFiles {
         for (String key : searchMap.keySet()) {
             List<Path> searchGroup = searchMap.get(key);
             if (searchGroup.size() > 0) {
-                executorService.execute(new SearchTask(key, searchGroup, filter));
+                executorService.execute(new SearchTask(key, searchGroup, fileExtension));
             }
         }
 
         executorService.shutdown();
 
-        System.out.println("Completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
+
     }
 
 
