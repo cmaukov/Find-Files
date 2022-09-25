@@ -7,6 +7,8 @@ import org.apache.commons.csv.CSVPrinter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +45,7 @@ public class FindingFiles {
                 System.out.println("invalid depth parameter");
             }
         }
+        System.out.println("Searching for files: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
         System.out.println("search depth: " + maxDepth);
 
         String location = "/Users/konstantinstaykov/Public/sandbox";
@@ -71,13 +74,13 @@ public class FindingFiles {
         for (String key : searchMap.keySet()) {
             List<Path> searchGroup = searchMap.get(key);
             if (searchGroup.size() > 0) {
-                executorService.execute(new Playground.SearchTask(key, searchGroup, filter));
+                executorService.execute(new SearchTask(key, searchGroup, filter));
             }
         }
 
         executorService.shutdown();
 
-
+        System.out.println("Completed: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd hh:mm:s")));
     }
 
 
