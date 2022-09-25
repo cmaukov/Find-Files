@@ -1,5 +1,8 @@
 package com.bmstechpro;
-
+/* directory-tree-visitor
+ * @created 09/23/2022
+ * @author Konstantin Staykov
+ */
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -17,6 +20,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
+/***
+ * Program will search for a file extension
+ * It breaks the search into manageable groups. Works well when executed on my computer but takes a long timme when searching files on a remote machine.
+ */
 public class FindingFiles {
     private static final String OUTPUT_FILE = "output.csv";
 
