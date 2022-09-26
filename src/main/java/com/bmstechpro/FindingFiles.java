@@ -1,5 +1,5 @@
 package com.bmstechpro;
-/* directory-tree-visitor
+/* file-finder
  * @created 09/23/2022
  * @author Konstantin Staykov
  */
@@ -133,12 +133,12 @@ public class FindingFiles {
                 try {
                     printer.printRecord(f.getFileName(),
                             f.toAbsolutePath());
-                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             });
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -159,8 +159,8 @@ public class FindingFiles {
             for (Path path : searchGroup) {
                 try (Stream<Path> pathStream = Files.find(path, 5, (p, a) -> p.getFileName().toString().endsWith(filter))) {
                     pathStream.forEach(foundMatches::add);
-                } catch (IOException ignored) {
-
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
             if (foundMatches.size() > 0) createCSVFile(foundMatches, key + "_" + OUTPUT_FILE);

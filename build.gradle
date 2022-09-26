@@ -33,6 +33,6 @@ jar {
                 'Created-By' : "bmstechpro",
                 'Main-Class': 'com.bmstechpro.FindingFiles'
     }
-    setArchivesBaseName("$project.name-all")
+    setArchivesBaseName("$project.name")
     from {project.configurations.runtimeClasspath.collect {File file -> project.zipTree(file) } }
 }
